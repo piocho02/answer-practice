@@ -16,7 +16,9 @@ test('PostgreSQL: authentication, folders, revisions, idempotency, sanitization,
   assert.equal((await call('documents')).status,401);assert.equal((await call('login',{body:{password:'test-pass'},from:'https://other.test'})).status,403);
   const login=await call('login',{body:{password:'test-pass'}});assert.equal(login.status,200);assert.match(login.cookie,/HttpOnly; Secure; SameSite=Strict/);const cookie=login.cookie.split(';')[0];
   const folder=await call('folders',{cookie,body:{name:'민사소송법'}});assert.equal(folder.status,201);
+  const expiredId=crypto.randomUUID();await db.query("INSERT INTO answer_vault.receipts VALUES($1,'expired','{}',now()-interval '1 day')",[expiredId]);
   const b={requestId:crypto.randomUUID(),payload,folderId:folder.data.id},first=await call('documents',{cookie,body:b});assert.equal(first.status,201);
+  assert.equal((await db.query('SELECT * FROM answer_vault.receipts WHERE id=$1',[expiredId])).rows.length,0);
   assert.equal((await call('documents',{cookie,body:b})).data.id,first.data.id);assert.equal((await call('documents?folder='+folder.data.id,{cookie})).data.items.length,1);
   const update={requestId:crypto.randomUUID(),payload:{...payload,answers:['<div onclick="bad()">확인<script>bad()</script></div>','','','','']},expectedRevision:1};
   const saved=await call('documents/'+first.data.id,{cookie,body:update,method:'PUT'});assert.equal(saved.status,200);assert.equal(saved.data.payload.answers[0],'<div>확인</div>');

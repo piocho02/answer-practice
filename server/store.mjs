@@ -18,7 +18,7 @@ export class Store {
  async folder(name){try{const id=randomUUID();await this.query('INSERT INTO answer_vault.folders VALUES($1,$2)',[id,name]);return {id,name};}catch(e){if(e.code==='23505')fail(409,'이미 같은 이름의 폴더가 있습니다.');throw e;}}
  row(r){return {id:r.id,payload:r.payload,folderId:r.folder_id,revision:r.revision,updatedAt:new Date(r.updated_at).getTime()};}
  async load(id){const [r]=await this.query('SELECT * FROM answer_vault.documents WHERE id=$1',[id]);if(!r)fail(404,'답안이 없습니다.');return this.row(r);}
- async list(cursor,folder){const rows=await this.query('SELECT * FROM answer_vault.documents WHERE ($1::uuid IS NULL OR id>$1) AND ($2::boolean OR folder_id IS NOT DISTINCT FROM $3::uuid) ORDER BY id LIMIT 31',[cursor,folder===undefined,folder||null]);return {items:rows.slice(0,30).map(r=>({id:r.id,subject:r.payload.subject,folderId:r.folder_id,revision:r.revision,updatedAt:new Date(r.updated_at).getTime()})),nextCursor:rows.length>30?rows[29].id:null};}
+ async list(cursor,folder){const rows=await this.query('SELECT id,payload->>\'subject\' AS subject,folder_id,revision,updated_at FROM answer_vault.documents WHERE ($1::uuid IS NULL OR id>$1) AND ($2::boolean OR folder_id IS NOT DISTINCT FROM $3::uuid) ORDER BY id LIMIT 31',[cursor,folder===undefined,folder||null]);return {items:rows.slice(0,30).map(r=>({id:r.id,subject:r.subject,folderId:r.folder_id,revision:r.revision,updatedAt:new Date(r.updated_at).getTime()})),nextCursor:rows.length>30?rows[29].id:null};}
  async deleteDocument(id,revision){return this.tx(async q=>{
   await q('SELECT pg_advisory_xact_lock(813743)');
   const [old]=await q('SELECT revision FROM answer_vault.documents WHERE id=$1 FOR UPDATE',[id]);
@@ -39,6 +39,7 @@ export class Store {
  async save(id,b){return this.tx(async q=>{
   // Personal vault: one short write transaction at a time, including idempotency checks.
   await q('SELECT pg_advisory_xact_lock(813743)');
+  await q('DELETE FROM answer_vault.receipts WHERE expires_at<=now()');
   const fingerprint=digest(JSON.stringify({id,...b}));
   const [receipt]=await q('SELECT * FROM answer_vault.receipts WHERE id=$1 AND expires_at>now()',[b.requestId]);
   if(receipt){if(receipt.request_hash!==fingerprint)fail(409,'같은 요청 ID의 내용이 다릅니다.');if(receipt.result.invalidated)fail(409,'이 저장 요청 이후 답안이나 폴더가 삭제되었습니다. 목록을 새로고침해 주세요.');return receipt.result;}
