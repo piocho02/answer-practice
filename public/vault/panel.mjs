@@ -43,6 +43,7 @@ function renderRows(){
 function showCurrent(){currentLabel.textContent=current?'현재 답안: '+current.payload.subject+' · 버전 '+current.revision+' (서버 저장 시 이 답안 갱신)':'현재 답안: 새 문서';}
 async function refreshFolders(){const data=await api('folders');folders=data.items;const b=browse.value,d=destination.value;browse.replaceChildren();destination.replaceChildren();function add(el,value,text){const o=document.createElement('option');o.value=value;o.textContent=text;el.append(o);}add(browse,'*','전체 답안');add(browse,'','미분류 ('+data.unfiled+')');add(destination,'','미분류');for(const f of folders){add(browse,f.id,f.name+' ('+f.count+')');add(destination,f.id,f.name);}browse.value=[...browse.options].some(x=>x.value===b)?b:'*';destination.value=[...destination.options].some(x=>x.value===d)?d:'';renderFolders();}
 let current=null,busy=false,pending=null,cursor=null;
+window.addEventListener('answer-practice-reset',e=>{if(busy){e.preventDefault();return;}current=null;pending=null;showCurrent();report('작성 내용을 초기화했습니다. 다음 서버 저장은 새 답안으로 저장됩니다.');});
 function report(text){status.textContent=text;}
 async function api(route,body,method=body?'POST':'GET'){
  let response;try{response=await fetch('/api/vault/'+route,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json'}:{},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(15000)});}catch{throw Error('서버에 연결하지 못했습니다. 로컬 답안은 유지됩니다. 다시 저장해 주세요.');}
