@@ -2,12 +2,6 @@
   "framework": null,
   "buildCommand": null,
   "outputDirectory": "public",
-  "rewrites": [
-    {
-      "source": "/api/vault/:route*",
-      "destination": "/api/vault?vaultRoute=:route*"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -19,7 +13,5 @@
       ]
     }
   ],
-  "regions": [
-    "syd1"
-  ]
+  "installCommand": ""
 }
