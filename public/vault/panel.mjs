@@ -3,8 +3,8 @@ launcher.id='answer-vault-launcher';launcher.type='button';launcher.textContent=
 const box=document.createElement('dialog');box.id='answer-vault-panel';box.setAttribute('aria-labelledby','vault-title');
 box.innerHTML=`<header class="vault-header"><div><h2 id="vault-title">답안 보관함</h2><span>과목별로 답안을 보관하고 다른 기기에서 이어 쓰세요.</span></div><button type="button" data-close aria-label="보관함 닫기">✕</button></header>
 <form class="vault-login"><h3>개인 보관함 로그인</h3><p><label>비밀번호 <input name="password" type="password" required autocomplete="current-password"></label></p><p><label><input name="remember" type="checkbox"> 이 기기에서 로그인 유지</label></p><button class="vault-primary">로그인</button></form>
-<div data-auth hidden><div class="vault-layout"><aside class="vault-sidebar"><h3>과목 폴더</h3><nav aria-label="과목 폴더" id="vault-folders"></nav><div class="vault-new-folder"><input id="vault-folder-name" aria-label="새 과목 폴더 이름" placeholder="새 과목 이름" maxlength="40"><button data-action="folder">폴더 만들기</button></div></aside>
-<section class="vault-files"><div class="vault-file-tools"><strong id="vault-path">전체 답안</strong><button data-action="list">새로고침</button></div><p class="vault-hint">답안을 선택하고 불러오기를 누르세요. 두 번 클릭해도 열 수 있습니다.</p><div class="vault-table-wrap"><table><thead><tr><th scope="col">답안 / 과목</th><th scope="col">폴더</th><th scope="col">수정일</th></tr></thead><tbody id="vault-rows"></tbody></table><p id="vault-empty" hidden>이 폴더에 저장된 답안이 없습니다.</p></div><button data-action="more" hidden>더 보기</button><div class="vault-selection"><span id="vault-selected">선택한 답안 없음</span><button data-action="load">선택한 답안 불러오기</button></div></section></div>
+<div data-auth hidden><div class="vault-layout"><aside class="vault-sidebar"><h3>과목 폴더</h3><nav aria-label="과목 폴더" id="vault-folders"></nav><div class="vault-new-folder"><input id="vault-folder-name" aria-label="새 과목 폴더 이름" placeholder="새 과목 이름" maxlength="40"><button data-action="folder">폴더 만들기</button><button data-action="delete-folder" class="vault-danger">선택한 폴더 삭제</button></div></aside>
+<section class="vault-files"><div class="vault-file-tools"><strong id="vault-path">전체 답안</strong><button data-action="list">새로고침</button></div><p class="vault-hint">답안을 선택하고 불러오기를 누르세요. 두 번 클릭해도 열 수 있습니다.</p><div class="vault-table-wrap"><table><thead><tr><th scope="col">답안 / 과목</th><th scope="col">폴더</th><th scope="col">수정일</th></tr></thead><tbody id="vault-rows"></tbody></table><p id="vault-empty" hidden>이 폴더에 저장된 답안이 없습니다.</p></div><button data-action="more" hidden>더 보기</button><div class="vault-selection"><span id="vault-selected">선택한 답안 없음</span><div><button data-action="delete-document" class="vault-danger">선택한 답안 삭제</button> <button data-action="load">선택한 답안 불러오기</button></div></div></section></div>
 <div class="vault-save-area"><div><p id="vault-current">현재 답안: 새 문서</p><label>저장 위치 <select id="vault-destination"><option value="">미분류</option></select></label></div><div class="vault-save-buttons"><button data-action="copy">새 사본 저장</button><button class="vault-primary" data-action="save">현재 답안 서버 저장</button></div></div><div class="vault-account"><span>서버 저장은 수동입니다. 목록 선택만으로 작성 중인 답안이 바뀌지 않습니다.</span><button data-action="logout">로그아웃</button></div></div>
 <p role="status" aria-live="polite">서버 저장은 수동입니다.</p><select id="vault-browse" hidden><option value="*">전체 답안</option><option value="">미분류</option></select><select aria-label="저장된 답안" hidden></select>`;
 const style=document.createElement('style');style.textContent=`
@@ -12,7 +12,7 @@ const style=document.createElement('style');style.textContent=`
 #answer-vault-panel{position:fixed;inset:0;margin:auto;width:min(960px,calc(100vw - 32px));max-width:960px;max-height:calc(100dvh - 40px);padding:0;border:1px solid #c9d3df;border-radius:16px;background:#fff;color:#23364a;box-shadow:0 24px 90px #10263c44;font:14px/1.5 system-ui;overflow:auto}
 #answer-vault-panel::backdrop{background:#172c4259}#answer-vault-panel *{box-sizing:border-box}#answer-vault-panel [hidden]{display:none!important}
 #answer-vault-panel button,#answer-vault-panel input,#answer-vault-panel select{font:inherit}#answer-vault-panel button{padding:8px 12px;border:1px solid #ccd6e0;border-radius:7px;background:#fff;color:#23364a;cursor:pointer}#answer-vault-panel button:hover{background:#edf4fc}#answer-vault-panel button:disabled{opacity:.5;cursor:wait}#answer-vault-panel :focus-visible{outline:3px solid #619bd2;outline-offset:2px}
-#answer-vault-panel input:not([type=checkbox]),#answer-vault-panel select{border:1px solid #ccd6e0;border-radius:6px;padding:8px;max-width:100%}#answer-vault-panel .vault-primary{background:#003664;color:#fff;border-color:#003664}
+#answer-vault-panel input:not([type=checkbox]),#answer-vault-panel select{border:1px solid #ccd6e0;border-radius:6px;padding:8px;max-width:100%}#answer-vault-panel .vault-danger{color:#b42332;border-color:#edc6cb}#answer-vault-panel .vault-primary{background:#003664;color:#fff;border-color:#003664}
 #answer-vault-panel .vault-header{height:auto;min-height:74px;display:flex;align-items:center;justify-content:space-between;padding:22px 24px;border-bottom:1px solid #dfe6ee}#answer-vault-panel h2{font-size:21px;margin:0 0 4px}#answer-vault-panel h3{font-size:14px;margin:0 0 16px}#answer-vault-panel .vault-header span,#answer-vault-panel .vault-hint{color:#67788a;font-size:13px}
 #answer-vault-panel .vault-login{padding:30px;max-width:420px;margin:auto}#answer-vault-panel .vault-login input[type=password]{display:block;width:100%;margin-top:8px}
 #answer-vault-panel .vault-layout{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:310px}#answer-vault-panel .vault-sidebar{padding:20px 14px;background:#f5f7fa;border-right:1px solid #dfe6ee}#answer-vault-panel nav{display:flex;flex-direction:column;gap:5px;max-height:220px;overflow:auto}#answer-vault-panel nav button{text-align:left;overflow-wrap:anywhere;border-color:transparent;background:transparent}#answer-vault-panel nav button[aria-current=true]{background:#e0ebf7;color:#003664;font-weight:700}#answer-vault-panel .vault-new-folder{display:grid;gap:8px;margin-top:20px}
@@ -54,6 +54,22 @@ browse.addEventListener('change',()=>run(async()=>{await list();report('선택�
 box.addEventListener('click',e=>{const action=e.target.dataset.action;if(!action)return;run(async()=>{
  if(action==='folder'){const f=await api('folders',{name:folderName.value});await refreshFolders();browse.value=f.id;destination.value=f.id;folderName.value='';await list();report('폴더를 만들었습니다. 저장할 폴더로 선택되었습니다.');}
  if(action==='list'||action==='more'){await refreshFolders();await list(action==='more');report('서버 목록을 불러왔습니다.');}
+ if(action==='delete-document'){
+  const item=items.find(x=>x.id===select.value);if(!item){report('삭제할 답안을 먼저 선택하세요.');return;}
+  if(!confirm('“'+item.subject+'” 답안을 서버에서 삭제할까요? 삭제 후 복구할 수 없습니다. 현재 작성 화면과 브라우저 자동저장 내용은 유지됩니다.'))return;
+  await api('documents/'+item.id,{expectedRevision:item.revision},'DELETE');
+  if(current?.id===item.id){current=null;pending=null;showCurrent();}
+  await refreshFolders();await list();report('서버 답안을 삭제했습니다. 현재 작성 중인 내용은 유지됩니다.');
+ }
+ if(action==='delete-folder'){
+  const folder=folders.find(x=>x.id===browse.value);if(!folder){report('삭제할 과목 폴더를 먼저 선택하세요. 전체 답안과 미분류는 삭제할 수 없습니다.');return;}
+  if(!confirm('“'+folder.name+'” 폴더를 삭제할까요? 폴더 안의 답안은 삭제하지 않고 모두 미분류로 옮깁니다.'))return;
+  const result=await api('folders/'+folder.id,{},'DELETE');
+  const moved=result.moved.find(x=>x.id===current?.id);
+  if(moved&&current.revision===moved.revision-1){current.folderId=null;current.revision=moved.revision;showCurrent();}
+  pending=null;browse.value='';if(destination.value===folder.id)destination.value='';
+  await refreshFolders();await list();report('폴더를 삭제했습니다. 답안 '+result.moved.length+'개를 미분류로 옮겼습니다.');
+ }
  if(action==='load'){
   if(!select.value)return;if(!confirm('현재 답안을 서버 답안으로 교체할까요? 필요하면 먼저 JSON으로 내보내세요.'))return;
   const row=await api('documents/'+select.value);window.vaultEditor.write(row.payload);current=row;destination.value=row.folderId||'';showCurrent();pending=null;report('불러오기 완료 · 버전 '+row.revision);box.close();

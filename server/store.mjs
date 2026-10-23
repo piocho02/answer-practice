@@ -19,12 +19,29 @@ export class Store {
  row(r){return {id:r.id,payload:r.payload,folderId:r.folder_id,revision:r.revision,updatedAt:new Date(r.updated_at).getTime()};}
  async load(id){const [r]=await this.query('SELECT * FROM answer_vault.documents WHERE id=$1',[id]);if(!r)fail(404,'답안이 없습니다.');return this.row(r);}
  async list(cursor,folder){const rows=await this.query('SELECT * FROM answer_vault.documents WHERE ($1::uuid IS NULL OR id>$1) AND ($2::boolean OR folder_id IS NOT DISTINCT FROM $3::uuid) ORDER BY id LIMIT 31',[cursor,folder===undefined,folder||null]);return {items:rows.slice(0,30).map(r=>({id:r.id,subject:r.payload.subject,folderId:r.folder_id,revision:r.revision,updatedAt:new Date(r.updated_at).getTime()})),nextCursor:rows.length>30?rows[29].id:null};}
+ async deleteDocument(id,revision){return this.tx(async q=>{
+  await q('SELECT pg_advisory_xact_lock(813743)');
+  const [old]=await q('SELECT revision FROM answer_vault.documents WHERE id=$1 FOR UPDATE',[id]);
+  if(!old)return {ok:true};
+  if(old.revision!==revision)fail(409,'다른 기기에서 수정된 답안입니다. 목록을 새로고침하고 다시 확인해 주세요.');
+  await q('DELETE FROM answer_vault.documents WHERE id=$1',[id]);
+  await q("UPDATE answer_vault.receipts SET result='{\"invalidated\":true}'::jsonb WHERE result->>'id'=$1",[id]);
+  return {ok:true};
+ });}
+ async deleteFolder(id){return this.tx(async q=>{
+  await q('SELECT pg_advisory_xact_lock(813743)');
+  const moved=await q('UPDATE answer_vault.documents SET folder_id=NULL,revision=revision+1,updated_at=now() WHERE folder_id=$1 RETURNING id,revision',[id]);
+  await q('DELETE FROM answer_vault.folders WHERE id=$1',[id]);
+  // Old save receipts must not return a folder that no longer exists.
+  await q("UPDATE answer_vault.receipts SET result='{\"invalidated\":true}'::jsonb WHERE result->>'folderId'=$1",[id]);
+  return {ok:true,moved};
+ });}
  async save(id,b){return this.tx(async q=>{
   // Personal vault: one short write transaction at a time, including idempotency checks.
   await q('SELECT pg_advisory_xact_lock(813743)');
   const fingerprint=digest(JSON.stringify({id,...b}));
   const [receipt]=await q('SELECT * FROM answer_vault.receipts WHERE id=$1 AND expires_at>now()',[b.requestId]);
-  if(receipt){if(receipt.request_hash!==fingerprint)fail(409,'같은 요청 ID의 내용이 다릅니다.');return receipt.result;}
+  if(receipt){if(receipt.request_hash!==fingerprint)fail(409,'같은 요청 ID의 내용이 다릅니다.');if(receipt.result.invalidated)fail(409,'이 저장 요청 이후 답안이나 폴더가 삭제되었습니다. 목록을 새로고침해 주세요.');return receipt.result;}
   const [old]=id?await q('SELECT * FROM answer_vault.documents WHERE id=$1 FOR UPDATE',[id]):[];
   if(id&&!old)fail(404,'답안이 없습니다.');
   if(old&&old.revision!==b.expectedRevision)fail(409,'다른 기기에서 수정했습니다. 새 사본으로 저장하거나 최신 답안을 불러오세요.');

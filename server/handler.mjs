@@ -17,7 +17,7 @@ export function createHandler(store,config){
   try{
    const url=new URL(req.url),route=url.pathname;
    if(url.origin!==origin)fail(403,'허용되지 않은 사이트입니다.');
-   if(!['GET','POST','PUT'].includes(req.method))fail(405,'지원하지 않는 요청입니다.');
+   if(!['GET','POST','PUT','DELETE'].includes(req.method))fail(405,'지원하지 않는 요청입니다.');
    if(req.method!=='GET'&&(req.headers.get('origin')!==origin||!req.headers.get('content-type')?.startsWith('application/json')))fail(403,'같은 사이트의 JSON 요청만 허용합니다.');
    async function body(){const reader=req.body?.getReader();if(!reader)fail(400,'요청 내용이 없습니다.');let size=0,chunks=[];while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>1048576){await reader.cancel();fail(413,'서버 저장은 1MiB 이하여야 합니다.');}chunks.push(value);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{fail(400,'JSON 형식이 잘못되었습니다.');}}
    if(await store.epoch()!==epoch)fail(503,'서버 설정을 확인해야 합니다.');
@@ -36,14 +36,17 @@ export function createHandler(store,config){
    if(route==='/api/vault/logout'&&req.method==='POST'){await store.logout(token);return reply(200,{ok:true},{'Set-Cookie':`${name}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`});}
    if(route==='/api/vault/folders'&&req.method==='GET')return reply(200,await store.folders());
    if(route==='/api/vault/folders'&&req.method==='POST'){const b=await body();const name=typeof b.name==='string'?b.name.normalize('NFC').trim():'';if(!name||name.length>40||/[\x00-\x1f]/.test(name))fail(400,'폴더 이름은 1~40자로 입력하세요.');return reply(201,await store.folder(name));}
+   const folderMatch=route.match(/^\/api\/vault\/folders\/([^/]+)$/);
+   if(folderMatch&&req.method==='DELETE')return reply(200,await store.deleteFolder(validId(folderMatch[1])));
    if(route==='/api/vault/documents'&&req.method==='GET'){const cursor=url.searchParams.get('cursor'),folder=url.searchParams.has('folder')?url.searchParams.get('folder'):undefined;if(cursor)validId(cursor);if(folder)validId(folder);return reply(200,await store.list(cursor||null,folder));}
    const match=route.match(/^\/api\/vault\/documents\/([^/]+)$/),id=match?validId(match[1]):null;
+   if(id&&req.method==='DELETE'){const b=await body();if(!Number.isSafeInteger(b.expectedRevision)||b.expectedRevision<1)fail(400,'revision이 필요합니다.');return reply(200,await store.deleteDocument(id,b.expectedRevision));}
    if(id&&req.method==='GET')return reply(200,await store.load(id));
    if((route==='/api/vault/documents'&&req.method==='POST')||(id&&req.method==='PUT')){
     const b=await body();validId(b.requestId);if(b.folderId!=null)validId(b.folderId);if(id&&(!Number.isSafeInteger(b.expectedRevision)||b.expectedRevision<1))fail(400,'revision이 필요합니다.');
     const result=await store.save(id,{requestId:b.requestId,payload:cleanPayload(b.payload),...(b.folderId!==undefined?{folderId:b.folderId}:{}),...(id?{expectedRevision:b.expectedRevision}:{})});return reply(id?200:201,result);
    }
    fail(404,'요청 경로가 없습니다.');
-  }catch(e){return reply(e.status||503,{error:e.status?e.message:'서버 연결에 실패했습니다. 로컬 답안은 유지됩니다.'},e.status===429?{'Retry-After':'900'}:{});}
+  }catch(e){return reply(e.status||503,{error:e.status?e.message:e.code==='42501'?'보관함 DB 권한 업데이트가 필요합니다. 관리자에게 확인해 주세요.':'서버 연결에 실패했습니다. 로컬 답안은 유지됩니다.'},e.status===429?{'Retry-After':'900'}:{});}
  };
 }

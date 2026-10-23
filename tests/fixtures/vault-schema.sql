@@ -1,0 +1,13 @@
+BEGIN;
+CREATE SCHEMA IF NOT EXISTS answer_vault;
+REVOKE ALL ON SCHEMA answer_vault FROM PUBLIC;
+CREATE TABLE IF NOT EXISTS answer_vault.settings(id integer PRIMARY KEY CHECK(id=1),epoch integer NOT NULL);
+INSERT INTO answer_vault.settings VALUES(1,1) ON CONFLICT DO NOTHING;
+CREATE TABLE IF NOT EXISTS answer_vault.folders(id uuid PRIMARY KEY,name text NOT NULL UNIQUE CHECK(length(name) BETWEEN 1 AND 40));
+CREATE TABLE IF NOT EXISTS answer_vault.documents(id uuid PRIMARY KEY,payload jsonb NOT NULL CHECK(jsonb_typeof(payload)='object' AND octet_length(payload::text)<=1048576),folder_id uuid REFERENCES answer_vault.folders(id),revision integer NOT NULL CHECK(revision>0),updated_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS documents_folder ON answer_vault.documents(folder_id,id);
+CREATE TABLE IF NOT EXISTS answer_vault.sessions(token_hash text PRIMARY KEY,epoch integer NOT NULL,expires_at timestamptz NOT NULL);
+CREATE TABLE IF NOT EXISTS answer_vault.limits(bucket text PRIMARY KEY,started_at timestamptz NOT NULL,attempts integer NOT NULL);
+CREATE TABLE IF NOT EXISTS answer_vault.receipts(id uuid PRIMARY KEY,request_hash text NOT NULL,result jsonb NOT NULL,expires_at timestamptz NOT NULL);
+REVOKE ALL ON ALL TABLES IN SCHEMA answer_vault FROM PUBLIC;
+COMMIT;
